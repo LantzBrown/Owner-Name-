@@ -1,6 +1,6 @@
 import React from 'react';
 import { BusinessRow } from '../types';
-import { User, CircleDashed, ExternalLink } from 'lucide-react';
+import { User, CircleDashed, ExternalLink, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 
 interface DataTableProps {
@@ -17,7 +17,8 @@ const DataTable: React.FC<DataTableProps> = ({ data, currentProcessingIds }) => 
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead className="bg-slate-50 sticky top-0 z-10 text-slate-500 font-medium shadow-sm">
             <tr>
-              <th className="px-4 py-3 border-b border-slate-200 min-w-[180px] w-[15%] text-indigo-900 bg-indigo-50/50 font-semibold">Owner</th>
+              <th className="px-4 py-3 border-b border-slate-200 min-w-[140px] w-[12%] text-indigo-900 bg-indigo-50/50 font-semibold">First Name</th>
+              <th className="px-4 py-3 border-b border-slate-200 min-w-[140px] w-[12%] text-indigo-900 bg-indigo-50/50 font-semibold">Last Name</th>
               <th className="px-4 py-3 border-b border-slate-200 min-w-[200px] w-[20%]">Name</th>
               <th className="px-4 py-3 border-b border-slate-200 min-w-[150px]">Profile</th>
               <th className="px-4 py-3 border-b border-slate-200 min-w-[150px]">Website</th>
@@ -30,8 +31,11 @@ const DataTable: React.FC<DataTableProps> = ({ data, currentProcessingIds }) => 
           <tbody className="divide-y divide-slate-100">
             {data.map((row) => {
               const isProcessing = currentProcessingIds.includes(row.id);
-              const hasResult = !!row.owner_name;
+              const hasResult = !!row.owner_first_name;
               
+              const isError = row.owner_first_name === 'API KEY ERROR';
+              const isNotFound = row.owner_first_name === 'Not Found';
+
               return (
                 <tr 
                   key={row.id} 
@@ -40,7 +44,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, currentProcessingIds }) => 
                     isProcessing && "bg-indigo-50/30"
                   )}
                 >
-                  {/* Owner Column */}
+                  {/* First Name Column */}
                   <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 bg-slate-50/30">
                     <div className="flex items-center gap-2">
                       {isProcessing ? (
@@ -49,18 +53,32 @@ const DataTable: React.FC<DataTableProps> = ({ data, currentProcessingIds }) => 
                           <span className="text-xs">Finding...</span>
                         </div>
                       ) : hasResult ? (
-                         row.owner_name === 'Not Found' ? (
+                         isNotFound ? (
                             <span className="text-slate-400 italic text-xs">Not Found</span>
+                         ) : isError ? (
+                            <div className="flex items-center gap-1 text-red-600 font-bold text-xs" title="Your API Key is invalid or leaked.">
+                                <AlertTriangle size={14} />
+                                <span>KEY ERROR</span>
+                            </div>
                          ) : (
                             <div className="flex items-center gap-2 text-emerald-700 font-semibold">
                                 <User size={14} />
-                                <span>{row.owner_name}</span>
+                                <span>{row.owner_first_name}</span>
                             </div>
                          )
                       ) : (
                         <span className="text-slate-300 text-xs">-</span>
                       )}
                     </div>
+                  </td>
+
+                  {/* Last Name Column */}
+                  <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 bg-slate-50/30">
+                    {hasResult && !isNotFound && !isError ? (
+                        <span className="text-emerald-700 font-semibold">{row.owner_last_name}</span>
+                    ) : (
+                        <span className="text-slate-300 text-xs">-</span>
+                    )}
                   </td>
                   
                   <td className="px-4 py-3 text-slate-700 truncate max-w-[200px]" title={row.business_name}>{row.business_name}</td>

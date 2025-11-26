@@ -46,8 +46,8 @@ const App: React.FC = () => {
     // We use a simple index tracker for the workers to pull from
     let nextIndex = 0;
     
-    // Calculate already processed to skip
-    const processedCount = data.filter(r => r.owner_name).length;
+    // Calculate already processed to skip (check owner_first_name instead of owner_name)
+    const processedCount = data.filter(r => r.owner_first_name).length;
     setCompletedCount(processedCount);
     nextIndex = 0; // We iterate all, but skip inside worker
 
@@ -71,7 +71,7 @@ const App: React.FC = () => {
         const row = dataRef.current[index];
 
         // Skip if already has data (resume functionality)
-        if (row.owner_name) {
+        if (row.owner_first_name) {
            continue; 
         }
 
@@ -81,6 +81,13 @@ const App: React.FC = () => {
         try {
           const result = await findBusinessOwner(row);
           
+          if (result.first_name === "API KEY ERROR") {
+            shouldStopRef.current = true;
+            // Alert user only once if possible, or just let the table show it
+            // We'll set status to ERROR in state to stop UI effectively
+            setStatus(AppStatus.ERROR);
+          }
+
           // Update data atomically
           setData(prevData => {
             const newData = [...prevData];
@@ -88,7 +95,8 @@ const App: React.FC = () => {
             if (rowIndex !== -1) {
                 newData[rowIndex] = {
                     ...newData[rowIndex],
-                    owner_name: result.name,
+                    owner_first_name: result.first_name,
+                    owner_last_name: result.last_name,
                     source: result.source,
                     confidence: result.confidence
                 };
@@ -113,7 +121,11 @@ const App: React.FC = () => {
     const workers = Array(CONCURRENCY_LIMIT).fill(null).map((_, i) => worker(i));
     await Promise.all(workers);
 
-    setStatus(prev => prev === AppStatus.PAUSED ? AppStatus.PAUSED : AppStatus.COMPLETED);
+    // If we hit an error, keep it as error, otherwise check if stopped or completed
+    setStatus(prev => {
+        if (prev === AppStatus.ERROR) return AppStatus.ERROR;
+        return prev === AppStatus.PAUSED ? AppStatus.PAUSED : AppStatus.COMPLETED;
+    });
     setCurrentProcessingIds([]);
   };
 
@@ -173,6 +185,11 @@ const App: React.FC = () => {
                       <button onClick={handleReset} className="text-xs text-red-500 hover:underline">
                           Remove File
                       </button>
+                  )}
+                  {status === AppStatus.ERROR && (
+                      <span className="text-xs text-red-600 font-bold px-2 py-1 bg-red-50 rounded">
+                          STOPPED: API Key Invalid/Leaked
+                      </span>
                   )}
               </div>
               <DataTable data={data} currentProcessingIds={currentProcessingIds} />

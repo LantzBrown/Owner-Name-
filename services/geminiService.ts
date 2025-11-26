@@ -1,14 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { BusinessRow } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 // Using gemini-2.5-flash as it is the most cost-effective current model 
 // that supports search grounding efficiently.
 const MODEL_NAME = "gemini-2.5-flash";
 
 interface OwnerResult {
-  name: string;
+  first_name: string;
+  last_name: string;
   source: string;
   confidence: "High" | "Medium" | "Low";
 }
@@ -18,6 +17,10 @@ interface OwnerResult {
  */
 export const findBusinessOwner = async (row: BusinessRow): Promise<OwnerResult> => {
   try {
+    // Initialize the client inside the function to ensure it uses the current environment context
+    // and to handle initialization errors within the try/catch block.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     const contextStr = `
       Business Name: ${row.business_name}
       Website: ${row.website || 'N/A'}
@@ -39,11 +42,14 @@ export const findBusinessOwner = async (row: BusinessRow): Promise<OwnerResult> 
           *   **Google Reviews**: Search for reviews mentioning "owner", "manager", or specific names (e.g., "Thanks [Name] for the help").
           *   **Directories**: LinkedIn, Yelp, BBB, Bizapedia.
           *   **Social Media**: Facebook/Instagram bios.
-      3.  **Conflict Resolution**: If multiple names appear, prioritize: Website > LinkedIn > News/Reviews.
+      3.  **Conflict Resolution**: If multiple names appear, prioritize: Website > LinkedIn > News > Reviews.
       
       Requirements:
-      *   Find the **First and Last Name**.
-      *   If not found, return "Not Found".
+      *   Find the **First Name** and **Last Name**.
+      *   **Crucial**: If there are middle names, include them in the **Last Name** field.
+          *   Example: "John Von Doe" -> first_name: "John", last_name: "Von Doe"
+          *   Example: "Mary Jane Watson" -> first_name: "Mary", last_name: "Jane Watson"
+      *   If not found, return "Not Found" in first_name and empty string in last_name.
       *   Provide the **Source** (URL or specific text like "Google Review").
       *   Assign **Confidence**:
           *   High: Found on official website or LinkedIn owner profile.
@@ -53,7 +59,8 @@ export const findBusinessOwner = async (row: BusinessRow): Promise<OwnerResult> 
       Return JSON format only:
       \`\`\`json
       {
-        "name": "Name",
+        "first_name": "First",
+        "last_name": "Last (including middle)",
         "source": "Source URL/Description",
         "confidence": "High/Medium/Low"
       }
@@ -78,7 +85,8 @@ export const findBusinessOwner = async (row: BusinessRow): Promise<OwnerResult> 
       try {
         const parsed = JSON.parse(jsonStr);
         return {
-          name: parsed.name || "Not Found",
+          first_name: parsed.first_name || "Not Found",
+          last_name: parsed.last_name || "",
           source: parsed.source || "Unknown",
           confidence: parsed.confidence || "Low"
         };
@@ -88,15 +96,31 @@ export const findBusinessOwner = async (row: BusinessRow): Promise<OwnerResult> 
     }
 
     return {
-      name: "Not Found",
+      first_name: "Not Found",
+      last_name: "",
       source: "AI Investigation",
       confidence: "Low"
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
+    
+    // Check for specific API Key errors (Leaked or Permission Denied)
+    const errorMsg = error?.toString() || "";
+    const errorJson = JSON.stringify(error);
+    
+    if (errorMsg.includes("leaked") || errorJson.includes("leaked") || error.status === 403) {
+      return {
+        first_name: "API KEY ERROR",
+        last_name: "",
+        source: "System",
+        confidence: "Low"
+      };
+    }
+
     return {
-      name: "Error",
+      first_name: "Error",
+      last_name: "",
       source: "System",
       confidence: "Low"
     };

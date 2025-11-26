@@ -16,7 +16,8 @@ export const parseCSV = (file: File): Promise<BusinessRow[]> => {
           phone_number: row['Phone'] || row['phone'] || '',
           email: row['Emails'] || row['emails'] || row['Email'] || '',
           
-          owner_name: '', 
+          owner_first_name: '', 
+          owner_last_name: '',
           confidence: '',
           source: ''
         }));
@@ -32,7 +33,8 @@ export const parseCSV = (file: File): Promise<BusinessRow[]> => {
 export const generateCSV = (data: BusinessRow[]): string => {
   // Output columns strictly as requested
   const structuredData = data.map((row) => ({
-    'Owner': row.owner_name || '',
+    'First Name': row.owner_first_name || '',
+    'Last Name': row.owner_last_name || '',
     'Name': row.business_name || '',
     'Profile': row.google_my_business_url || '',
     'Website': row.website || '',
